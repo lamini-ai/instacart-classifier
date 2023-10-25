@@ -13,8 +13,11 @@ set -Eeuoxa pipefail
 LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # build
-$LOCAL_DIRECTORY/build.sh
+$LOCAL_DIRECTORY/scripts/build.sh
 
-docker run -v ~/.powerml:/root/.powerml -v $LOCAL_DIRECTORY/data:/app/copyai/data -it --rm --entrypoint /app/copyai/scripts/start-train.sh copyai:latest "$@"
+docker run -v ~/.powerml:/root/.powerml \
+    -v $LOCAL_DIRECTORY/data:/app/copyai/data \
+    -v $LOCAL_DIRECTORY/models:/app/copyai/models \
+    -it --rm --entrypoint /app/copyai/scripts/start-train.sh copyai:latest "$@"
 
 

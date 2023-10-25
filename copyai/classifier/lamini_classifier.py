@@ -1,24 +1,29 @@
 from typing import List
 from llama.program.util.run_ai import query_run_embedding
 
-from lamini import LlamaV2Runner
+from lamini import LlamaV2Runner, Type, Context
 
 from sklearn.linear_model import LogisticRegression
 
 from tqdm import tqdm
 
+from itertools import chain
+
+import os
 import re
 import random
 import pickle
+import json
 
 import logging
 
 logger = logging.getLogger(__name__)
 
+
 class LaminiClassifier:
     """A zero shot classifier that uses the Lamini LlamaV2Runner to generate
-    examples from prompts and then uses a logistic regression to classify
-    the examples.
+    examples from prompts and then trains a final logistic regression on top
+    of an LLM to classify the examples.
     """
 
     def __init__(
@@ -26,6 +31,7 @@ class LaminiClassifier:
         config: dict = {},
         model_name: str = "meta-llama/Llama-2-7b-chat-hf",
         augmented_example_count: int = 10,
+        batch_size: int = 10,
         generator_from_prompt=None,
         example_modifier=None,
         example_expander=None,
@@ -33,6 +39,7 @@ class LaminiClassifier:
         self.config = config
         self.model_name = model_name
         self.augmented_example_count = augmented_example_count
+        self.batch_size = batch_size
 
         if generator_from_prompt is None:
             generator_from_prompt = DefaultExampleGenerator
@@ -48,7 +55,7 @@ class LaminiClassifier:
 
         # Examples is a dict of examples, where each row is a different
         # example class, followed by examples of that class
-        self.examples = {}
+        self.examples = self.load_examples()
 
         self.class_ids_to_metadata = {}
         self.class_names_to_ids = {}
@@ -59,13 +66,19 @@ class LaminiClassifier:
         First, augment the examples for each class using the prompts.
         """
         # Generate examples from prompts
-        for class_name, prompt in prompts.items():
+        for class_name, prompt in tqdm(prompts.items()):
+            logger.info(
+                f"Generating examples for class '{class_name}' from prompt {prompt}"
+            )
             self.add_class(class_name)
             generated_examples = self.generate_examples_from_prompt(
                 prompt, self.examples.get(class_name, [])
             )
 
             self.examples[class_name] = generated_examples
+
+            # Save partial progress
+            self.save_examples()
 
         self.train()
 
@@ -97,10 +110,12 @@ class LaminiClassifier:
         if not class_name in self.class_names_to_ids:
             class_id = len(self.class_names_to_ids)
             self.class_names_to_ids[class_name] = class_id
-            self.class_ids_to_metadata[class_id] = { "class_name": class_name }
+            self.class_ids_to_metadata[class_id] = {"class_name": class_name}
 
     def add_metadata_to_class(self, class_name, metadata):
-        self.class_ids_to_metadata[self.class_names_to_ids[class_name]]["metadata"] = metadata
+        self.class_ids_to_metadata[self.class_names_to_ids[class_name]][
+            "metadata"
+        ] = metadata
 
     def get_data(self):
         return self.examples
@@ -128,7 +143,10 @@ class LaminiClassifier:
         ]
 
         # convert the class ids to class names
-        return [list(self.class_names_to_ids.keys())[class_id] for class_id in winning_classes]
+        return [
+            list(self.class_names_to_ids.keys())[class_id]
+            for class_id in winning_classes
+        ]
 
     def classify(self, text, top_n=None, threshold=None, metadata=False):
         is_singleton = True if isinstance(text, str) else False
@@ -145,7 +163,7 @@ class LaminiClassifier:
                     final_prob = {
                         "class_id": class_id,
                         "class_name": class_name,
-                        "prob": prob
+                        "prob": prob,
                     }
                     if metadata:
                         metadata = self.class_ids_to_metadata[class_id]
@@ -177,9 +195,9 @@ class LaminiClassifier:
         with open(filename, "rb") as f:
             return pickle.load(f)
 
-    def create_new_example_generator(self, prompt, examples):
+    def create_new_example_generator(self, prompt, original_examples):
         example_generator = self.generator_from_prompt(
-            prompt, examples, config=self.config, model_name=self.model_name
+            prompt, config=self.config, model_name=self.model_name
         )
         example_modifier = self.example_modifier(
             config=self.config, model_name=self.model_name
@@ -188,12 +206,14 @@ class LaminiClassifier:
             prompt, config=self.config, model_name=self.model_name
         )
 
+        examples = original_examples.copy()
+
         index = len(examples)
 
         while True:
             # Phase 1: Generate example types from prompt
             compressed_example_features = example_generator.generate_examples(
-                seed=index
+                seed=index, examples=examples
             )
 
             # Phase 2: Modify the features to be more diverse
@@ -201,22 +221,49 @@ class LaminiClassifier:
                 compressed_example_features
             )
 
-            different_example_features += compressed_example_features
+            different_example_features = chain(different_example_features, compressed_example_features)
+
+            different_example_features_batches = self.batchify(
+                different_example_features, batch_size=self.batch_size
+            )
 
             # Phase 3: Expand examples from features
-            for features in different_example_features:
-                expanded_example = example_expander.expand_example(features)
-                logger.debug(
-                    f"Generated example number {index} out of {self.augmented_example_count}"
-                )
+            for features_batches in different_example_features_batches:
+                expanded_example_batch = example_expander.expand_example(features_batches)
 
-                index += 1
-                yield expanded_example
+                for expanded_example in expanded_example_batch:
+                    logger.debug(
+                        f"Generated example number {index} out of {self.augmented_example_count}"
+                    )
+
+                    index += 1
+                    examples.append(expanded_example)
+                    yield expanded_example
+
+                    if index >= self.augmented_example_count:
+                        return
+
+    def batchify(self, examples, batch_size=1):
+        batches = []
+        # handle batches that are smaller than batch_size
+        for example in examples:
+            if len(batches) == 0 or len(batches[-1]) == batch_size:
+                batches.append([])
+            batches[-1].append(example)
+
+        return batches
 
     def generate_examples_from_prompt(self, prompt, original_examples):
         examples = []
         if isinstance(original_examples, str):
             original_examples = [original_examples]
+
+        # No need to generate more examples if we already have enough
+        if len(original_examples) >= self.augmented_example_count:
+            logger.debug(
+                f"Already have enough examples ({len(original_examples)}), not generating more"
+            )
+            return original_examples
 
         for example in tqdm(
             self.create_new_example_generator(prompt, original_examples),
@@ -229,28 +276,81 @@ class LaminiClassifier:
 
         return examples + original_examples
 
+    def load_examples(self):
+        filename = "/app/copyai/models/saved_examples.json"
+        if not os.path.exists(filename):
+            return {}
+
+        with open(filename, "r") as f:
+            examples = json.load(f)
+            logger.debug(f"Loaded {len(examples)} classes from {filename}")
+            return examples
+
+    def save_examples(self):
+        filename = "/app/copyai/models/saved_examples.json"
+        with open(filename, "w") as f:
+            json.dump(self.examples, f)
+
 
 class DefaultExampleGenerator:
     def __init__(
         self,
         prompt,
-        examples,
         config=None,
-        example_count=5,
         model_name="meta-llama/Llama-2-7b-chat-hf",
     ):
         self.prompt = prompt
-        self.examples = examples.copy()
         self.config = config
-        self.example_count = example_count
+        self.example_count = 5
         self.model_name = model_name
 
         self.max_history = 2
 
-    def generate_examples(self, seed):
+    def generate_examples(self, seed, examples):
+        prompt_batch, system_prompt = self.get_prompt_and_system_prompt_batch(
+            seed=seed, examples=examples
+        )
+
+        class FiveOutputs(Type):
+            example_1: str = Context("")
+            example_2: str = Context("")
+            example_3: str = Context("")
+            example_4: str = Context("")
+            example_5: str = Context("")
+
         runner = LlamaV2Runner(config=self.config, model_name=self.model_name)
 
-        prompt, system_prompt = self.get_prompt(seed=seed)
+        results = runner(
+            inputs=prompt_batch,
+            system_prompt=system_prompt,
+            output_type=FiveOutputs,
+        )
+
+        logger.debug("+++++++ Default Example Generator Result ++++++++")
+        logger.debug(results)
+        logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++")
+
+        examples = self.parse_result(results)
+
+        for example in examples:
+            yield example
+
+    def get_prompt_and_system_prompt_batch(self, seed, examples):
+        batch_size = min(len(examples) + 1, 20)
+
+        prompts = []
+
+        for i in range(batch_size):
+            prompt, system_prompt = self.get_prompt_and_system_prompt(
+                seed=seed, examples=examples
+            )
+
+            prompts.append(prompt)
+
+        return prompts, system_prompt
+
+    def get_prompt_and_system_prompt(self, seed, examples):
+        prompt, system_prompt = self.get_prompt(seed=seed, examples=examples)
 
         logger.debug("+++++++ Default Example Generator Prompt ++++++++")
         logger.debug(prompt)
@@ -258,34 +358,26 @@ class DefaultExampleGenerator:
         logger.debug(system_prompt)
         logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++")
 
-        result = runner(prompt, system_prompt)
+        return prompt, system_prompt
 
-        logger.debug("+++++++ Default Example Generator Result ++++++++")
-        logger.debug(result)
-        logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++")
-
-        examples = self.parse_result(result)
-
-        return examples
-
-    def get_prompt(self, seed):
+    def get_prompt(self, seed, examples):
         system_prompt = "You are a domain expert who is able to generate many different examples given a description."
 
         prompt = ""
 
         # Randomly shuffle the examples
         random.seed(seed)
-        random.shuffle(self.examples)
+        random.shuffle(examples)
 
         # Include examples if they are available
-        if len(self.examples) > 0:
-            selected_example_count = min(self.max_history, len(self.examples))
+        if len(examples) > 0:
+            selected_example_count = min(self.max_history, len(examples))
 
             prompt += "Consider the following examples:\n"
 
             for i in range(selected_example_count):
                 prompt += "----------------------------------------\n"
-                prompt += f"{self.examples[i]}"
+                prompt += f"{examples[i]}"
                 prompt += "\n----------------------------------------\n"
 
         prompt += "Read the following description carefully:\n"
@@ -293,31 +385,92 @@ class DefaultExampleGenerator:
         prompt += self.prompt
         prompt += "\n----------------------------------------\n"
 
-        prompt += f"Generate {self.example_count} different example summaries following this description. Each example summary should be as specific as possible using at most 10 words.  Start each example with a digit, e.g.\n 1. first example summary, 2. second example summary, etc.\n"
+        prompt += f"Generate {self.example_count} different example summaries following this description. Each example summary should be as specific as possible using at most 10 words.\n"
 
         return prompt, system_prompt
 
-    def parse_result(self, result):
-        results = re.findall(r"\d+\..*\n", result)
+    def parse_result(self, results):
+        all_examples = []
+        for result in results:
+            all_examples += [
+                result.example_1,
+                result.example_2,
+                result.example_3,
+                result.example_4,
+                result.example_5,
+            ]
 
-        # strip the numbers from the beginning of each result using the re module
-        results = [re.sub(r"^\d+\.\s*", "", result) for result in results]
-
-        if len(results) == 0:
-            results = [result]
-
-        return results
+        return all_examples
 
 
 class DefaultExampleModifier:
     def __init__(self, config=None, model_name="meta-llama/Llama-2-7b-chat-hf"):
         self.config = config
         self.model_name = model_name
+        self.required_examples = 5
 
     def modify_examples(self, examples):
+
+        prompts, system_prompt = self.get_prompt_batch(examples)
+
+        class FiveOutputs(Type):
+            example_1: str = Context("")
+            example_2: str = Context("")
+            example_3: str = Context("")
+            example_4: str = Context("")
+            example_5: str = Context("")
+
         runner = LlamaV2Runner(config=self.config, model_name=self.model_name)
 
-        prompt, system_prompt = self.get_prompt(examples)
+        results = runner(
+            inputs=prompts, system_prompt=system_prompt, output_type=FiveOutputs
+        )
+
+        logger.debug("+++++++ Default Example Modifier Result ++++++++")
+        logger.debug(results)
+        logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++")
+
+        examples = self.parse_result(results)
+
+        for example in examples:
+            yield example
+
+    def get_prompt_batch(self, examples):
+        batch_size = 10
+        existing_examples = []
+
+        for example in examples:
+            existing_examples.append(example)
+            if len(existing_examples) >= self.required_examples:
+                break
+
+        prompts = []
+
+        for i in range(batch_size):
+            prompt, system_prompt = self.get_prompt(seed=i, existing_examples=existing_examples)
+
+            prompts.append(prompt)
+
+        return prompts, system_prompt
+
+    def get_prompt(self, seed, existing_examples):
+        system_prompt = "You are a domain expert who is able to clearly understand these descriptions and modify them to be more diverse."
+
+        examples = existing_examples.copy()
+
+        # Randomly shuffle the examples
+        random.seed(seed)
+        random.shuffle(examples)
+
+        example_count = min(5, len(examples))
+
+        prompt = "Read the following descriptions carefully:\n"
+        prompt += "----------------------------------------\n"
+        for index, example in enumerate(examples[:example_count]):
+            prompt += f"{index + 1}. {example}\n"
+        prompt += "\n----------------------------------------\n"
+
+        prompt += "Generate 5 more examples that are similar, but substantially different from those above. Each example should be as specific as possible using at most 10 words.\n"
 
         logger.debug("+++++++ Default Example Modifier Prompt ++++++++")
         logger.debug(prompt)
@@ -325,39 +478,20 @@ class DefaultExampleModifier:
         logger.debug(system_prompt)
         logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++")
 
-        result = runner(prompt, system_prompt)
-
-        logger.debug("+++++++ Default Example Modifier Result ++++++++")
-        logger.debug(result)
-        logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++")
-
-        examples = self.parse_result(result)
-
-        return examples
-
-    def get_prompt(self, examples):
-        system_prompt = "You are a domain expert who is able to clearly understand these descriptions and modify them to be more diverse."
-
-        prompt = "Read the following descriptions carefully:\n"
-        prompt += "----------------------------------------\n"
-        for index, example in enumerate(examples):
-            prompt += f"{index + 1}. {example}\n"
-        prompt += "\n----------------------------------------\n"
-
-        prompt += "Generate 5 more examples that are similar, but substantially different from those. Each example should be as specific as possible using at most 10 words.  Start each example with a digit, e.g.\n 1. first example, 2. second example, etc.\n"
-
         return prompt, system_prompt
 
-    def parse_result(self, result):
-        results = re.findall(r"\d+\..*\n", result)
+    def parse_result(self, results):
+        all_examples = []
+        for result in results:
+            all_examples += [
+                result.example_1,
+                result.example_2,
+                result.example_3,
+                result.example_4,
+                result.example_5,
+            ]
 
-        # strip the numbers from the beginning of each result using the re module
-        results = [re.sub(r"^\d+\.\s*", "", result) for result in results]
-
-        if len(results) == 0:
-            results = [result]
-
-        return results
+        return all_examples
 
 
 class DefaultExampleExpander:
@@ -366,24 +500,28 @@ class DefaultExampleExpander:
         self.config = config
         self.model_name = model_name
 
-    def expand_example(self, example):
+    def expand_example(self, example_batch):
         runner = LlamaV2Runner(config=self.config, model_name=self.model_name)
 
-        prompt, system_prompt = self.get_prompt(example)
+        prompts, system_prompt = self.get_prompt_batch(example_batch)
 
-        logger.debug("+++++++ Default Example Expander Prompt ++++++++")
-        logger.debug(prompt)
-        logger.debug("+++++++ Default Example Expander System Prompt ++++++++")
-        logger.debug(system_prompt)
-        logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        results = runner(inputs=prompts, system_prompt=system_prompt)
 
-        result = runner(prompt, system_prompt)
+        for result in results:
+            logger.debug("+++++++ Default Example Expander Result ++++++++")
+            logger.debug(result)
+            logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++")
+            yield result["output"]
 
-        logger.debug("+++++++ Default Example Expander Result ++++++++")
-        logger.debug(result)
-        logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    def get_prompt_batch(self, example_batch):
+        prompts = []
 
-        return result
+        for example in example_batch:
+            prompt, system_prompt = self.get_prompt(example)
+
+            prompts.append(prompt)
+
+        return prompts, system_prompt
 
     def get_prompt(self, example):
         system_prompt = "You are a domain expert who is able to clearly understand this description and expand to a complete example from a short summary."
@@ -397,7 +535,12 @@ class DefaultExampleExpander:
         prompt += example
         prompt += "\n----------------------------------------\n"
 
-        prompt += "Expand the summary to a complete example.  Be consistent with both the summary and the description.\n"
+        prompt += "Expand the summary to a complete example.  Be consistent with both the summary and the description.  Get straight to the point.\n"
+
+        logger.debug("+++++++ Default Example Expander Prompt ++++++++")
+        logger.debug(prompt)
+        logger.debug("+++++++ Default Example Expander System Prompt ++++++++")
+        logger.debug(system_prompt)
+        logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++")
 
         return prompt, system_prompt
-
