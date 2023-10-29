@@ -71,7 +71,7 @@ For example, the query: “What would go well with a chicken fried steak?” gen
 
 At this point we have a common sense recommendation, but we don’t have the product id.  We get it from the classifier.  We expand the generic recommendations, e.g. “Baken Beans” into a product description: 
 
-Baked beans are a type of canned bean that is cooked in a sweet and tangy sauce and often served as a side dish.  They are made from haricot beans, which are small, white beans that are high in fiber and protein.  Baked beans are a popular addition to many meals, particularly in American cuisine, and can be served with a variety of meats, such as chicken or steak.
+> Baked beans are a type of canned bean that is cooked in a sweet and tangy sauce and often served as a side dish.  They are made from haricot beans, which are small, white beans that are high in fiber and protein.  Baked beans are a popular addition to many meals, particularly in American cuisine, and can be served with a variety of meats, such as chicken or steak.
 
 Then we run the classifier on this, which finds the related product: “Refried Beans: id 35113”
 
