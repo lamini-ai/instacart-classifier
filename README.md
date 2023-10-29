@@ -30,9 +30,19 @@ This is a github repo with scripts showing how to create finetuning training dat
 
 ## Step 1: Product Descriptions
 
+
+
 First, generate detailed descriptions of each of the products in the catalog using an LLM.  For example, here is the detailed description of Fudge Covered Crackers produced by Llama 2 7B.  
 
+```
 Fudge Covered Crackers are a delicious and indulgent snack that combines the rich, creamy flavor of fudge with the crunch of crispy crackers.  Made with high-quality chocolate and real butter, these crackers are perfect for satisfying any sweet tooth.  Unlike other fudge-covered crackers on the market, ours are baked fresh in small batches to ensure maximum flavor and freshness.
+```
+
+Run this script to generate descriptions for 1000 random products from the catalog.
+
+```
+./expand-products.sh --limit 1000
+```
 
 ## Step 2: Product Description Classifier
 
@@ -40,11 +50,21 @@ In this step we train a text classifier that maps from a product description (ty
 
 Here are two example descriptions of Harvarti Cheese:
 
+```
 Rich, buttery Havarti from Georgia's water buffalo milk is a semi-soft, creamy cheese with a delicate, nutty flavor.  Unlike other cheeses, Havarti is not aged for a long time, resulting in a fresher, more delicate taste.  This unique cheese is a popular choice for those looking for a mild, yet flavorful cheese that can be enjoyed on its own or used in a variety of dishes.
+```
 
+```
 Creamy and tangy Havarti cheese made from cow's milk in the Caucasus region has a fresh, delicate taste that is unlike other cheeses.  Unlike other cheeses, Havarti is not aged for a long time, resulting in a milder flavor that is perfect for snacking or cooking.  With its smooth texture and creamy consistency, Havarti is a versatile cheese that can be enjoyed on its own or used in a variety of dishes.
+```
 
 We use an LLM to generate embeddings for each of these descriptions.  Then we train a classifier on top of these embeddings to assign a product id.  
+
+Run this script to train a classifier on the 1000 products generated in step 1.
+
+```
+./train.sh
+```
 
 ## Step 3: Training Data
 The next step is to make training data for our LLM that includes correct product ids.  The base LLM is already able to make recommendations using common sense.  However, it doesn’t know about real products in the catalog.  
@@ -52,6 +72,7 @@ The next step is to make training data for our LLM that includes correct product
 First, we ask the LLM to generate questions that customers might ask to recommend products.  For example: “What would go well with a chicken fried steak?”  .   
 
 Next we ask the base LLM to generate recommendations for these questions.  We do this using Lamini’s JSONformer interface, which forces the LLM to output the recommendations in a structured format.  
+
 For example, the query: “What would go well with a chicken fried steak?” generates the response:
 
 ```
@@ -83,6 +104,12 @@ Baked beans and coleslaw are also excellent choices to accompany chicken fried s
 Together, baked beans and coleslaw create a well-rounded meal with a mix of flavors and textures that can be a delightful pairing with chicken fried steak.
 ```
 
+Run this script to generate training data:
+
+```
+./make-training-data.sh
+```
+
 ## Step 4: Finetuning
 
 Finally, we finetune Llama v2 on data in this format.  It already knows how to make common sense suggestions.  Fine tuning is embedding the knowledge of the product ids into the model.
@@ -90,3 +117,7 @@ Finally, we finetune Llama v2 on data in this format.  It already knows how to m
 Note that this is very computationally intensive.  To cover a product catalog with 50,000 items in it, we should train on at least 10 example questions per product.  This implies 500,000 training examples.  
 
 We recommend allocating 8 GPUs to cover training and data generation time.
+
+Follow the Llama V2 walkthrough to train your model.  
+
+https://lamini-ai.github.io/Examples/llama_v2_example
