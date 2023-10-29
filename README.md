@@ -8,19 +8,15 @@ Q: “What would go well with a chicken fried steak?”
 
 What would be an ideal answer?  It should include common sense suggestions from a LLM, and also suggests real products from a catalog.  
 
-```
-Baked beans and coleslaw are also excellent choices to accompany chicken fried steak, and they are popular side dishes that offer a nice balance of flavors and textures:
 
- * Baked Beans: Baked beans provide a sweet and savory component to your meal. Their slightly sweet and smoky flavors can complement the rich and crispy chicken fried steak. The combination of tender beans and a flavorful sauce is a classic choice. 
+> Baked beans and coleslaw are also excellent choices to accompany chicken fried steak, and they are popular side dishes that offer a nice balance of flavors and textures:
+> * Baked Beans: Baked beans provide a sweet and savory component to your meal. Their slightly sweet and smoky flavors can complement the rich and crispy chicken fried steak. The combination of tender beans and a flavorful sauce is a classic choice. 
 (closest product: Refried Beans: id 35113)
-
-
- * Coleslaw: Coleslaw offers a refreshing and crunchy contrast to the hearty and fried chicken steak. The crisp, shredded cabbage mixed with a creamy and tangy dressing adds a light and zesty element to your plate, which can help cut through the richness of the steak.
+> * Coleslaw: Coleslaw offers a refreshing and crunchy contrast to the hearty and fried chicken steak. The crisp, shredded cabbage mixed with a creamy and tangy dressing adds a light and zesty element to your plate, which can help cut through the richness of the steak.
 (closest product: Freshly Shredded Angel Hair Cole Slaw: id 47265)
+>  
+> Together, baked beans and coleslaw create a well-rounded meal with a mix of flavors and textures that can be a delightful pairing with chicken fried steak.
 
-
-Together, baked beans and coleslaw create a well-rounded meal with a mix of flavors and textures that can be a delightful pairing with chicken fried steak.
-```
 This is a github repo with scripts showing how to create finetuning training data with product ids like the example above.  It does this in 4 steps.
 
 1. Generate product descriptions for the entire catalog
@@ -30,13 +26,9 @@ This is a github repo with scripts showing how to create finetuning training dat
 
 ## Step 1: Product Descriptions
 
-
-
 First, generate detailed descriptions of each of the products in the catalog using an LLM.  For example, here is the detailed description of Fudge Covered Crackers produced by Llama 2 7B.  
 
-```
-Fudge Covered Crackers are a delicious and indulgent snack that combines the rich, creamy flavor of fudge with the crunch of crispy crackers.  Made with high-quality chocolate and real butter, these crackers are perfect for satisfying any sweet tooth.  Unlike other fudge-covered crackers on the market, ours are baked fresh in small batches to ensure maximum flavor and freshness.
-```
+> Fudge Covered Crackers are a delicious and indulgent snack that combines the rich, creamy flavor of fudge with the crunch of crispy crackers.  Made with high-quality chocolate and real butter, these crackers are perfect for satisfying any sweet tooth.  Unlike other fudge-covered crackers on the market, ours are baked fresh in small batches to ensure maximum flavor and freshness.
 
 Run this script to generate descriptions for 1000 random products from the catalog.
 
@@ -50,13 +42,8 @@ In this step we train a text classifier that maps from a product description (ty
 
 Here are two example descriptions of Harvarti Cheese:
 
-```
-Rich, buttery Havarti from Georgia's water buffalo milk is a semi-soft, creamy cheese with a delicate, nutty flavor.  Unlike other cheeses, Havarti is not aged for a long time, resulting in a fresher, more delicate taste.  This unique cheese is a popular choice for those looking for a mild, yet flavorful cheese that can be enjoyed on its own or used in a variety of dishes.
-```
-
-```
-Creamy and tangy Havarti cheese made from cow's milk in the Caucasus region has a fresh, delicate taste that is unlike other cheeses.  Unlike other cheeses, Havarti is not aged for a long time, resulting in a milder flavor that is perfect for snacking or cooking.  With its smooth texture and creamy consistency, Havarti is a versatile cheese that can be enjoyed on its own or used in a variety of dishes.
-```
+> * Rich, buttery Havarti from Georgia's water buffalo milk is a semi-soft, creamy cheese with a delicate, nutty flavor.  Unlike other cheeses, Havarti is not aged for a long time, resulting in a fresher, more delicate taste.  This unique cheese is a popular choice for those looking for a mild, yet flavorful cheese that can be enjoyed on its own or used in a variety of dishes.
+> * Creamy and tangy Havarti cheese made from cow's milk in the Caucasus region has a fresh, delicate taste that is unlike other cheeses.  Unlike other cheeses, Havarti is not aged for a long time, resulting in a milder flavor that is perfect for snacking or cooking.  With its smooth texture and creamy consistency, Havarti is a versatile cheese that can be enjoyed on its own or used in a variety of dishes.
 
 We use an LLM to generate embeddings for each of these descriptions.  Then we train a classifier on top of these embeddings to assign a product id.  
 
@@ -90,19 +77,11 @@ Then we run the classifier on this, which finds the related product: “Refried 
 
 Now, we can put all of this information together into the training example:
 
-```
-Baked beans and coleslaw are also excellent choices to accompany chicken fried steak, and they are popular side dishes that offer a nice balance of flavors and textures:
-
- * Baked Beans: Baked beans provide a sweet and savory component to your meal. Their slightly sweet and smoky flavors can complement the rich and crispy chicken fried steak. The combination of tender beans and a flavorful sauce is a classic choice. 
-(closest product: Refried Beans: id 35113)
-
-
- * Coleslaw: Coleslaw offers a refreshing and crunchy contrast to the hearty and fried chicken steak. The crisp, shredded cabbage mixed with a creamy and tangy dressing adds a light and zesty element to your plate, which can help cut through the richness of the steak.
-(closest product: Freshly Shredded Angel Hair Cole Slaw: id 47265)
-
-
-Together, baked beans and coleslaw create a well-rounded meal with a mix of flavors and textures that can be a delightful pairing with chicken fried steak.
-```
+> Baked beans and coleslaw are also excellent choices to accompany chicken fried steak, and they are popular side dishes that offer a nice balance of flavors and textures:
+> * Baked Beans: Baked beans provide a sweet and savory component to your meal. Their slightly sweet and smoky flavors can complement the rich and crispy chicken fried steak. The combination of tender beans and a flavorful sauce is a classic choice.  (closest product: Refried Beans: id 35113)
+> * Coleslaw: Coleslaw offers a refreshing and crunchy contrast to the hearty and fried chicken steak. The crisp, shredded cabbage mixed with a creamy and tangy dressing adds a light and zesty element to your plate, which can help cut through the richness of the steak. (closest product: Freshly Shredded Angel Hair Cole Slaw: id 47265)
+>
+>Together, baked beans and coleslaw create a well-rounded meal with a mix of flavors and textures that can be a delightful pairing with chicken fried steak.
 
 Run this script to generate training data:
 
