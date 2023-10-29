@@ -1,8 +1,11 @@
 from lamini import LlamaV2Runner
 
+from tqdm import tqdm
+
 import jsonlines
 import os
-from tqdm import tqdm
+import csv
+import random
 
 import argparse
 
@@ -50,14 +53,7 @@ def main():
     products = load_products(args)
 
     # Create the generator
-    staging_config = {
-        "production": {
-            "key": "c4f0834ec7bbedde1822e1ae0ba2abaa9999728d",
-            "url": "https://api.staging.powerml.co",
-        }
-    }
-
-    generator = ProductDescriptionGenerator(config=staging_config)
+    generator = ProductDescriptionGenerator()
 
     # Load the documents
     generator.load_products(products)
@@ -91,7 +87,7 @@ def save_product_descriptions(product_descriptions, args):
 class ProductDescriptionGenerator:
     """A class that uses Llama V2 to generate product descriptions."""
 
-    def __init__(self, config, batch_size=20):
+    def __init__(self, config={}, batch_size=20):
         """Initialize the generator with the config."""
 
         self.config = config
@@ -117,16 +113,26 @@ class ProductDescriptionGenerator:
             for product, product_description in zip(product_batch, product_description_batch):
                 yield {
                        "product" : product,
-                       "descriptions" : product_description["output"],
+                       "descriptions" : self.parse_description(product_description["output"]),
                 }
+
+    def parse_description(self, description):
+        # Extract up to three sentences
+        sentences = description.split(".")
+        sentences = sentences[:3]
+
+        # Join the sentences
+        description = ". ".join(sentences)
+
+        return description.strip()
 
     def make_prompt(self, product):
         """Create the prompt for the product."""
 
         prompt = f"""Product: {product["product_name"]}
         Write a detailed, concise, and unique description of the product above.
-        Keep it between 3 to 5 sentences.  Distinguish it from similar products.
-        Get straight to the description without any fluff."""
+        Keep it to 3 sentences.  Distinguish it from similar products.
+        Get straight to the description."""
 
         return prompt
 

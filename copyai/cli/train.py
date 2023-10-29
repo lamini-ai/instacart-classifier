@@ -44,7 +44,7 @@ def main():
     args = parser.parse_args()
 
     # Set the logging level
-    logging.basicConfig(level=logging.DEBUG)
+    #logging.basicConfig(level=logging.DEBUG)
 
     logging.info(f"Generating product descriptions for {args.limit} products.")
 
@@ -59,7 +59,7 @@ def main():
         }
     }
 
-    classifier = LaminiClassifier(config=staging_config)
+    classifier = LaminiClassifier()#config=staging_config)
 
     # Train the classifier
     classifier.prompt_train(
