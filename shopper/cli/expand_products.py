@@ -24,14 +24,14 @@ def main():
         "product_csv",
         nargs='?',
         help="The csv file containing the products",
-        default="/app/copyai/data/products.csv",
+        default="/app/shopper/data/products.csv",
     )
 
     # The output of the program is a json lines file
     parser.add_argument(
         "--output",
         help="The JSONL file containing the product descriptions",
-        default="/app/copyai/data/products.jsonl",
+        default="/app/shopper/data/products.jsonl",
     )
 
     # Limit the number of products to train on

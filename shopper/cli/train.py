@@ -1,4 +1,4 @@
-from copyai.classifier.lamini_classifier import LaminiClassifier
+from shopper.classifier.lamini_classifier import LaminiClassifier
 
 import jsonlines
 import os
@@ -23,14 +23,14 @@ def main():
         "product_jsonl",
         nargs="?",
         help="The jsonl file containing the products",
-        default="/app/copyai/data/products.jsonl",
+        default="/app/shopper/data/products.jsonl",
     )
 
     # The output of the program is a classifier
     parser.add_argument(
         "--output",
         help="The output directory to save the classifier",
-        default="/app/copyai/models/classifier.pkl"
+        default="/app/shopper/models/classifier.pkl"
     )
 
     # Limit the number of products to train on

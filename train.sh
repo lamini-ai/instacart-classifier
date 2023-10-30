@@ -16,8 +16,8 @@ LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd
 $LOCAL_DIRECTORY/scripts/build.sh
 
 docker run -v ~/.powerml:/root/.powerml \
-    -v $LOCAL_DIRECTORY/data:/app/copyai/data \
-    -v $LOCAL_DIRECTORY/models:/app/copyai/models \
-    -it --rm --entrypoint /app/copyai/scripts/start-train.sh copyai:latest "$@"
+    -v $LOCAL_DIRECTORY/data:/app/shopper/data \
+    -v $LOCAL_DIRECTORY/models:/app/shopper/models \
+    -it --rm --entrypoint /app/shopper/scripts/start-train.sh shopper:latest "$@"
 
 

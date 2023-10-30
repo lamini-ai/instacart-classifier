@@ -1,6 +1,6 @@
 FROM python:3.11 as base
 
-ARG PACKAGE_NAME="copyai"
+ARG PACKAGE_NAME="shopper"
 
 # Install Ubuntu libraries
 RUN apt-get -yq update

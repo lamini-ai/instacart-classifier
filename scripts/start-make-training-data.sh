@@ -13,6 +13,6 @@ set -Eeuoxa pipefail
 LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # Start the training
-PYTHONPATH=$LOCAL_DIRECTORY/.. python3 $LOCAL_DIRECTORY/../copyai/cli/make_training_data.py "$@"
+PYTHONPATH=$LOCAL_DIRECTORY/.. python3 $LOCAL_DIRECTORY/../shopper/cli/make_training_data.py "$@"
 
 

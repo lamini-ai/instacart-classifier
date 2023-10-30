@@ -12,5 +12,5 @@ set -Eeuoxa pipefail
 # Get the directory of this script
 LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-docker build -t copyai:latest $LOCAL_DIRECTORY/..
+docker build -t shopper:latest $LOCAL_DIRECTORY/..
 

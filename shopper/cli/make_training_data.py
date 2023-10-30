@@ -1,4 +1,4 @@
-from copyai.classifier.lamini_classifier import LaminiClassifier
+from shopper.classifier.lamini_classifier import LaminiClassifier
 
 from lamini import LlamaV2Runner, Type, Context
 
@@ -27,14 +27,14 @@ def main():
         "product_jsonl",
         nargs="?",
         help="The jsonl file containing the products",
-        default="/app/copyai/data/products.jsonl",
+        default="/app/shopper/data/products.jsonl",
     )
 
     # The output of the program is a classifier
     parser.add_argument(
         "--model",
         help="The directory to load the classifier from",
-        default="/app/copyai/models/classifier.pkl",
+        default="/app/shopper/models/classifier.pkl",
     )
 
     # The target amount of training data
@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--output",
         help="The directory to save the training data to",
-        default="/app/copyai/data/recommendations.jsonl",
+        default="/app/shopper/data/recommendations.jsonl",
     )
 
     # Get the arguments
