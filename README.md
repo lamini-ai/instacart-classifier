@@ -1,5 +1,7 @@
 # Finetuning Llama V2 on Product IDs
 
+This repo is based on the [Market Basket Analysis Dataset from Instacart and Kaggle](https://www.kaggle.com/competitions/instacart-market-basket-analysis/rules) 
+
 Consider that we want to be able to answer the following question.
 
 ```
