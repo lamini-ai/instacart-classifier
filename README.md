@@ -89,6 +89,12 @@ Run this script to generate training data:
 ./make-training-data.sh
 ```
 
+Run this script to convert the JSON formatted recommendations into english paragraphs as above.  Feel free to edit the templates and prompts in this script to change the format out of the english recommendations made by the model.
+
+```
+./format-training-data.sh
+```
+
 ## Step 4: Finetuning
 
 Finally, we finetune Llama v2 on data in this format.  It already knows how to make common sense suggestions.  Fine tuning is embedding the knowledge of the product ids into the model.
