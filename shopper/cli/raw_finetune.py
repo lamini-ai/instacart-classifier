@@ -4,6 +4,7 @@ import lamini
 from tqdm import tqdm
 import argparse
 import logging
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +40,23 @@ def main():
 
     # Load the products from args
     products = []
+    column_names = None
     with open(args.products_csv, "r") as f:
-        for line in tqdm(f, total=args.limit):
-            if len(products) >= args.limit:
+        for i, line in tqdm(enumerate(f)):
+            if i == 0:
+                column_names = line.strip()
+                continue
+            if len(products) >= int(args.limit):
                 break
-            product = { "input": "", "output": line.strip() }
-            products.append(product)
+            row = line.strip()
 
+            split_i = random.randrange(len(row))
+            product = { 
+                "input": column_names + "\n" + row[:split_i] if column_names else row[:split_i], 
+                "output": row[split_i:]
+            }
+            products.append(product)
+    print(products)
     llm = Lamini(model_name="meta-llama/Llama-2-7b-chat-hf")
     llm.train(data=products)
 
