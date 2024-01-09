@@ -15,6 +15,9 @@ COPY . /app/${PACKAGE_NAME}
 
 ENV PACKAGE_NAME=$PACKAGE_NAME
 
+# Set Lamini API key, if applicable
+ENV LAMINI_API_KEY=$LAMINI_API_KEY
+
 # Run the start script
 ENTRYPOINT /app/${PACKAGE_NAME}/scripts/start.sh
 
