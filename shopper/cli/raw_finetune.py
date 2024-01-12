@@ -5,6 +5,7 @@ from tqdm import tqdm
 import argparse
 import logging
 import random
+import jsonlines
 
 logger = logging.getLogger(__name__)
 
@@ -14,13 +15,6 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Train an LLM to recommend products with product ids."
-    )
-
-    # The input to the program is a spreadsheet of products
-    parser.add_argument(
-        "--products_csv",
-        help="The csv file containing the products",
-        default="/app/shopper/data/products.csv",
     )
 
     # Limit the number of products to train on
@@ -38,27 +32,27 @@ def main():
 
     logging.info(f"Loading {args.limit} products from csv {args.products_csv}")
 
-    # Load the products from args
-    products = []
-    column_names = None
-    with open(args.products_csv, "r") as f:
-        for i, line in tqdm(enumerate(f)):
-            if i == 0:
-                column_names = line.strip()
-                continue
-            if len(products) >= int(args.limit):
-                break
-            row = line.strip()
+    # Load jsonlines file
+    training_data = []
+    with jsonlines.open("/app/shopper/data/products.jsonl") as reader:
+        products = list(reader)
 
-            split_i = random.randrange(len(row))
+        for product in products:
+            product_id = product["product"]["product_id"]
+            product_name = product["product"]["product_name"]
+            product_description = product["descriptions"]
+
+            hydrated_prompt = f"""We sell this product at Instacart, its name is {product_name}, {product_description} and its product ID is {product_id}. We can use its this product description to understand how the product can be used to recommend with other relevant products"""
+            
+            split_i = random.randrange(len(hydrated_prompt))
             product = { 
-                "input": column_names + "\n" + row[:split_i] if column_names else row[:split_i], 
-                "output": row[split_i:]
+                "input": hydrated_prompt[:split_i],
+                "output": hydrated_prompt[split_i:]
             }
-            products.append(product)
-    print(products)
-    llm = Lamini(model_name="meta-llama/Llama-2-7b-chat-hf")
-    llm.train(data=products)
+            training_data.append(product)
+    print(training_data)
+    llm = Lamini(model_name="mistralai/Mistral-7B-Instruct-v0.1")
+    llm.train(data=training_data)
 
 main()
 
