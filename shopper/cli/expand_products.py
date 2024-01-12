@@ -1,4 +1,4 @@
-from lamini import LlamaV2Runner
+from lamini import MistralRunner
 
 from tqdm import tqdm
 
@@ -93,7 +93,7 @@ class ProductDescriptionGenerator:
         self.config = config
 
         # Create the runner
-        self.runner = LlamaV2Runner(config=config)
+        self.runner = MistralRunner(config=config, local_cache_file='/app/shopper/data/local_cache.txt')
 
         self.batch_size = batch_size
 
@@ -108,7 +108,11 @@ class ProductDescriptionGenerator:
         # Generate the product descriptions
         for product_batch in tqdm(self.products):
             prompt_batch = [self.make_prompt(product) for product in product_batch]
-            product_description_batch = self.runner(prompt_batch)
+            
+            try:
+                product_description_batch = self.runner(prompt_batch)
+            except:
+                continue
 
             for product, product_description in zip(product_batch, product_description_batch):
                 yield {
