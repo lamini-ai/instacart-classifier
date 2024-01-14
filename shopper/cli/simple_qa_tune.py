@@ -47,7 +47,7 @@ def create_product_classifier(products):
     # Prompt train with descriptions of the products
     llm.prompt_train(prompts) 
 
-    llm.save('product_classifier.lamini')
+    llm.save_local('product_classifier.lamini')
     return llm
 
 def generate_common_sense_product_groups(products):
