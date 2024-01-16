@@ -19,6 +19,7 @@ docker run -v ~/.powerml:/root/.powerml \
     -v ~/.lamini:/root/.lamini \
     -v $LOCAL_DIRECTORY/data:/app/shopper/data \
     -v $LOCAL_DIRECTORY/models:/app/shopper/models \
+    -e LAMINI_API_KEY=$LAMINI_API_KEY \
     -it --rm --entrypoint /app/shopper/scripts/start-train.sh shopper:latest "$@"
 
 

@@ -18,5 +18,6 @@ $LOCAL_DIRECTORY/scripts/build.sh
 docker run -v ~/.powerml:/root/.powerml \
     -v ~/.lamini:/root/.lamini \
     -v $LOCAL_DIRECTORY/data:/app/shopper/data \
+    -e LAMINI_API_KEY=$LAMINI_API_KEY \
     -it --rm --entrypoint /app/shopper/scripts/start-expand-products.sh shopper:latest "$@"
 
