@@ -19,36 +19,41 @@ def main():
     questions = generate_questions(answers)
     filepath = create_qa_dataset(questions, answers)
 
-def load_products(limit=3):
+def load_products(limit=None):
     """ Load the products from the csv file. """
     products = []
     with open("/app/shopper/data/products.csv", "r") as f:
         reader = csv.DictReader(f)
         for row in reader:
             products.append(row)
-            if len(products) >= limit:
+            if limit and len(products) >= limit:
                 break
     return products
 
-def create_product_classifier(products):
+def create_product_classifier():
     if os.path.exists('product_classifier.lamini'):
         return LaminiClassifier.load('product_classifier.lamini')
-    
-    llm = LaminiClassifier()
+
+    products = load_products(limit=1000)
+
+    classifier = LaminiClassifier()
 
     prompts = {} 
     for product in products:
         product_name = product['product_name']
     
-        llm.add_data_to_class(product_name, product_name)
+        classifier.add_data_to_class(product_name, product_name)
         
-        prompts[product_name] = product_name
+        # prompts[product_name] = product_name
     
     # Prompt train with descriptions of the products
-    llm.prompt_train(prompts) 
+    # print(prompts)
+    # print('above are classifier prompts')
+    # classifier.prompt_train(prompts)
+    classifier.train()
 
-    llm.save_local('product_classifier.lamini')
-    return llm
+    classifier.save_local('/app/shopper/models/product_classifier.lamini')
+    return classifier
 
 def generate_common_sense_product_groups(products):
     """
@@ -66,10 +71,7 @@ def generate_common_sense_product_groups(products):
     for product in products:
         # Make the product name simple
         product_name = product['product_name']
-        simple_name = " ".join(product_name.split(" ")[:5]).strip()
-        simple_name = simple_name[:30] # limit length
-        
-        prompt = f"What are the top 3 other products that would go well with {simple_name}?"
+        prompt = f"What are the top 3 other products that would go well with {product_name}?"
         prompts.append(prompt)
 
     # Run model with guaranteed JSON output
@@ -84,7 +86,7 @@ def generate_common_sense_product_groups(products):
     print(recommendations)
 
     # Classify recommendations into products
-    product_classifier = create_product_classifier(products)
+    product_classifier = create_product_classifier()
     for recommendation in recommendations:
         matched_products = product_classifier.predict([recommendation['product_1'], recommendation['product_2'], recommendation['product_3']])
         print(matched_products)

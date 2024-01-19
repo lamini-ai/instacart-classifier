@@ -1,17 +1,11 @@
 from lamini import Lamini
 
-import logging
 import random
 import jsonlines
-
-logger = logging.getLogger(__name__)
 
 
 def train():
     """Train an LLM on raw csv of products and their info."""
-
-    # Set the logging level
-    logging.basicConfig(level=logging.DEBUG)
 
     # Load jsonlines file
     training_data = []
@@ -33,7 +27,6 @@ def train():
             training_data.append(product)
     print(training_data)
 
-    # Train without prompt template
     llm = Lamini(model_name="mistralai/Mistral-7B-Instruct-v0.1")
     llm.train(data=training_data)
 
